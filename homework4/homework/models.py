@@ -94,7 +94,7 @@ class MLPPlanner(nn.Module):
 
         # concatenate = (B, n_track*4)
         # at this point input_dim = 40
-        x = torch.cat([track_left, track_right], dim=1) 
+        x = torch.cat([left_flat, right_flat], dim=1) 
 
         x = self.network(x)
         
