@@ -48,14 +48,12 @@ def train(
 
     train_data = load_data(
         "drive_data/train",
-        transform_pipeline="default",
         shuffle=True,
         batch_size=batch_size,
         num_workers=2,
     )
     val_data = load_data(
         "drive_data/val",
-        transform_pipeline="default",
         shuffle=False,
         batch_size=batch_size,
         num_workers=2,
