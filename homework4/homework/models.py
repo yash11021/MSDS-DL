@@ -57,12 +57,15 @@ class MLPPlanner(nn.Module):
             # (B, 40) -> (B, 256)
             nn.Linear(input_dim, 256),
             nn.ReLU(),
+            nn.Dropout(0.1),
             # (B, 256) -> (B, 256)
             nn.Linear(256, 256),
             nn.ReLU(),
+            nn.Dropout(0.1),
             # (B, 256) -> (B, 128)
             nn.Linear(256, 128),
             nn.ReLU(),
+            nn.Dropout(0.1),
             # (B, 128) -> (B, 64)
             nn.Linear(128, 64),
             nn.ReLU(),
