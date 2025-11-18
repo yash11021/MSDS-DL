@@ -23,6 +23,8 @@ def train(
     lr: float = 1e-3,
     batch_size: int = 128,
     seed: int = 2024,
+    num_workers: int = 2,
+    transform_pipeline: str = "state_only",
     **kwargs,
 ):
     if torch.cuda.is_available():
@@ -42,21 +44,24 @@ def train(
     logger = tb.SummaryWriter(log_dir)
 
     # note: the grader uses default kwargs, you'll have to bake them in for the final submission
+    # kwargs only contains model-specific arguments (not training arguments)
     model = load_model(model_name, **kwargs)
     model = model.to(device)
     model.train()
 
     train_data = load_data(
         "drive_data/train",
+        transform_pipeline=transform_pipeline,
         shuffle=True,
         batch_size=batch_size,
-        num_workers=2,
+        num_workers=num_workers,
     )
     val_data = load_data(
         "drive_data/val",
+        transform_pipeline=transform_pipeline,
         shuffle=False,
         batch_size=batch_size,
-        num_workers=2,
+        num_workers=num_workers,
     )
 
     loss_func = torch.nn.MSELoss(reduction='none')
