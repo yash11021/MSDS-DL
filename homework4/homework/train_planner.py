@@ -64,7 +64,7 @@ def train(
         num_workers=num_workers,
     )
 
-    loss_func = torch.nn.MSELoss(reduction='none')
+    loss_func = torch.nn.L1Loss(reduction='none')
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
