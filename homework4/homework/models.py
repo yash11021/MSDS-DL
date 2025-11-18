@@ -54,8 +54,14 @@ class MLPPlanner(nn.Module):
         output_dim = n_waypoints * 2
 
         self.network = nn.Sequential(
-            # (B, 40) -> (B, 128)
-            nn.Linear(input_dim, 128),
+            # (B, 40) -> (B, 256)
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            # (B, 256) -> (B, 256)
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            # (B, 256) -> (B, 128)
+            nn.Linear(256, 128),
             nn.ReLU(),
             # (B, 128) -> (B, 64)
             nn.Linear(128, 64),
