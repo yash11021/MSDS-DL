@@ -222,6 +222,24 @@ class TransformerPlanner(nn.Module):
 
 
 class CNNPlanner(torch.nn.Module):
+    class Block(torch.nn.Module):
+        def __init__(self, in_channels, out_channels, stride):
+            super().__init__()
+            kernel_size = 3
+            padding = (kernel_size - 1) // 2
+
+            self.c1 = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+            self.c2 = torch.nn.Conv2d(out_channels, out_channels, kernel_size, 1, padding)
+            self.c3 = torch.nn.Conv2d(out_channels, out_channels, kernel_size, 1, padding)
+            self.relu = torch.nn.ReLU()
+
+        def forward(self, x):
+            x = self.relu(self.c1(x))
+            x = self.relu(self.c2(x))
+            x = self.relu(self.c3(x))
+            return x
+        
+
     def __init__(
         self,
         n_waypoints: int = 3,
@@ -233,6 +251,44 @@ class CNNPlanner(torch.nn.Module):
         self.register_buffer("input_mean", torch.as_tensor(INPUT_MEAN), persistent=False)
         self.register_buffer("input_std", torch.as_tensor(INPUT_STD), persistent=False)
 
+        # input: (B, 3, 96, 128)
+        
+        in_channels = 3
+        output_dim = n_waypoints * 2  # 3 waypoints * 2 coords
+
+        cnn_layers = [
+            # layer 0: initial conv layer
+            # input: (B, 3, 96, 128)
+            # output: (B, 3, 48, 64)
+            nn.Conv2d(3, in_channels, kernel_size=7, stride=2, padding=3),
+            nn.ReLU(),
+        ]
+
+        c1 = in_channels
+        n_blocks = 4
+
+        # block 1: (B, 3, 48, 64) -> (B, 6, 24, 32)
+        # block 2: (B, 6, 24, 32) -> (B, 12, 12, 16)
+        # block 3: (B, 12, 12, 16) -> (B, 24, 6, 8)
+        # block 4: (B, 24, 6, 8) -> (B, 48, 3, 4)
+        for _ in range(n_blocks):
+            c2 = c1 * 2
+            cnn_layers.append(self.Block(c1, c2, stride=2))
+            c1 = c2
+
+        # final conv layer to output_dim channels
+        # (B, 48, 3, 4) -> (B, 6, 3, 4)
+        cnn_layers.append(nn.Conv2d(c1, output_dim, kernel_size=1))
+
+        # global average pooling
+        # (B, 6, 3, 4) -> (B, 6, 1, 1)
+        cnn_layers.append(nn.AdaptiveAvgPool2d(1))
+
+        # flatten from (B, 6, 1, 1) to (B, 6)
+        cnn_layers.append(nn.Flatten())
+
+        self.network = nn.Sequential(*cnn_layers)
+
     def forward(self, image: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Args:
@@ -241,10 +297,19 @@ class CNNPlanner(torch.nn.Module):
         Returns:
             torch.FloatTensor: future waypoints with shape (b, n, 2)
         """
-        x = image
-        x = (x - self.input_mean[None, :, None, None]) / self.input_std[None, :, None, None]
+        B = image.shape[0]
 
-        raise NotImplementedError
+        # normalize input
+        x = (image - self.input_mean[None, :, None, None]) / self.input_std[None, :, None, None]
+
+        # pass through CNN network
+        # output shape: (B, 6)
+        x = self.network(x)
+
+        # reshape to (B, n_waypoints, 2)
+        waypoints = x.view(B, self.n_waypoints, 2)
+
+        return waypoints
 
 
 MODEL_FACTORY = {
