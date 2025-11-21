@@ -83,10 +83,8 @@ def train(
         for batch in train_data:
             # track_left: (B, 10, 2) - left lane boundary points
             # track_right: (B, 10, 2) - right lane boundary points
-            # waypoints: (B, 3, 2) - ground truth waypoints 
+            # waypoints: (B, 3, 2) - ground truth waypoints
             # waypoints_mask: (B, 3) - boolean mask for valid waypoints
-            track_left = batch["track_left"].to(device)
-            track_right = batch["track_right"].to(device)
             waypoints = batch["waypoints"].to(device)
             waypoints_mask = batch["waypoints_mask"].to(device)
 
@@ -94,7 +92,15 @@ def train(
 
             # forward
             # (B, 3, 2)
-            pred_waypoints = model(track_left, track_right)
+            if "image" in batch:
+                # CNN planner = images
+                image = batch["image"].to(device)
+                pred_waypoints = model(image)
+            else:
+                # MLP/Transformer planners = track boundaries
+                track_left = batch["track_left"].to(device)
+                track_right = batch["track_right"].to(device)
+                pred_waypoints = model(track_left, track_right)
 
             # (B, 3, 2)
             losses = loss_func(pred_waypoints, waypoints)
@@ -123,12 +129,18 @@ def train(
             model.eval()
 
             for batch in val_data:
-                track_left = batch["track_left"].to(device)
-                track_right = batch["track_right"].to(device)
                 waypoints = batch["waypoints"].to(device)
                 waypoints_mask = batch["waypoints_mask"].to(device)
 
-                pred_waypoints = model(track_left, track_right)
+                if "image" in batch:
+                    # CNN planner uses images
+                    image = batch["image"].to(device)
+                    pred_waypoints = model(image)
+                else:
+                    # MLP/Transformer planners use track boundaries
+                    track_left = batch["track_left"].to(device)
+                    track_right = batch["track_right"].to(device)
+                    pred_waypoints = model(track_left, track_right)
 
                 losses = loss_func(pred_waypoints, waypoints)
                 loss_masked = losses * waypoints_mask.unsqueeze(-1)
