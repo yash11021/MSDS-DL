@@ -126,7 +126,44 @@ class TransformerPlanner(nn.Module):
         self.n_track = n_track
         self.n_waypoints = n_waypoints
 
-        self.query_embed = nn.Embedding(n_waypoints, d_model)
+        num_heads = 4
+        num_layers = 2
+
+        # 1. learned query embeddings for each waypoint
+        # (n_waypoints,) → (n_waypoints, d_model)
+        self.query_embed = nn.Embedding(n_waypoints, d_model) # (how many embeddings to store, size of each embedding vector)
+
+        # 2. encode boundary points from (x, z) coords to d_model space
+        # (B, 20, 2) -> (B, 20, d_model)
+        self.boundary_encoder = nn.Sequential(
+            nn.Linear(2, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+        )
+
+        # 3. cross-attention part
+        # queries = waypoint embeddings = (B, 3, d_model)
+        # keys/values = encoded boundaries (B, 20, d_model)
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=d_model,
+            nhead=num_heads,
+            dim_feedforward=4 * d_model,
+            batch_first=True,
+            dropout=0.1,
+        )
+        self.transformer_decoder = nn.TransformerDecoder(
+            decoder_layer,
+            num_layers=num_layers,
+        )
+
+        # 4. decode to (x, z) waypoints
+        # (B, 3, d_model) -> (B, 3, 2)
+        self.waypoint_decoder = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, 2),
+        )
+
 
     def forward(
         self,
@@ -147,7 +184,41 @@ class TransformerPlanner(nn.Module):
         Returns:
             torch.Tensor: future waypoints with shape (b, n_waypoints, 2)
         """
-        raise NotImplementedError
+        B = track_left.shape[0]
+
+        # 1. concatenate left and right boundaries
+        # (B, 10, 2) + (B, 10, 2) -> (B, 20, 2)
+        boundaries = torch.cat([track_left, track_right], dim=1)
+
+        # 2. encode boundary points to d_model space
+        # (B, 20, 2) -> (B, 20, d_model)
+        encoded_boundaries = self.boundary_encoder(boundaries)
+
+        # 3. get query embeddings for waypoints
+        # index [0, 1, 2] for the 3 waypoints
+        # (n_waypoints,) -> (n_waypoints, d_model)
+        query_indices = torch.arange(self.n_waypoints, device=track_left.device)
+        queries = self.query_embed(query_indices)
+
+        # expand queries to batch dimension
+        # (n_waypoints, d_model) -> (B, n_waypoints, d_model)
+        # (3, 64) -> (B, 3, 64) - repeat for each item in batch
+        queries = queries.unsqueeze(0).expand(B, -1, -1)
+
+        # 4. cross-attention: queries attend to encoded boundaries
+        # queries = (B, 3, d_model)
+        # encoded_boundaries = (B, 20, d_model) = keys/values
+        # output = (B, 3, d_model)
+        waypoint_features = self.transformer_decoder(
+            tgt=queries,
+            memory=encoded_boundaries,
+        )
+
+        # 5. decode to waypoint coordinates
+        # (B, 3, d_model) -> (B, 3, 2)
+        waypoints = self.waypoint_decoder(waypoint_features)
+
+        return waypoints
 
 
 class CNNPlanner(torch.nn.Module):
