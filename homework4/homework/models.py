@@ -229,14 +229,17 @@ class CNNPlanner(torch.nn.Module):
             padding = (kernel_size - 1) // 2
 
             self.c1 = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+            self.bn1 = torch.nn.BatchNorm2d(out_channels)
             self.c2 = torch.nn.Conv2d(out_channels, out_channels, kernel_size, 1, padding)
+            self.bn2 = torch.nn.BatchNorm2d(out_channels)
             self.c3 = torch.nn.Conv2d(out_channels, out_channels, kernel_size, 1, padding)
+            self.bn3 = torch.nn.BatchNorm2d(out_channels)
             self.relu = torch.nn.ReLU()
 
         def forward(self, x):
-            x = self.relu(self.c1(x))
-            x = self.relu(self.c2(x))
-            x = self.relu(self.c3(x))
+            x = self.relu(self.bn1(self.c1(x)))
+            x = self.relu(self.bn2(self.c2(x)))
+            x = self.relu(self.bn3(self.c3(x)))
             return x
         
 
