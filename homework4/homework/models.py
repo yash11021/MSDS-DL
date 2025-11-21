@@ -265,23 +265,24 @@ class CNNPlanner(torch.nn.Module):
         ]
 
         c1 = in_channels
-        n_blocks = 4
+        n_blocks = 5
 
         # block 1: (B, 3, 48, 64) -> (B, 6, 24, 32)
         # block 2: (B, 6, 24, 32) -> (B, 12, 12, 16)
         # block 3: (B, 12, 12, 16) -> (B, 24, 6, 8)
         # block 4: (B, 24, 6, 8) -> (B, 48, 3, 4)
+        # block 5: (B, 48, 3, 4) -> (B, 96, 1, 2)
         for _ in range(n_blocks):
             c2 = c1 * 2
             cnn_layers.append(self.Block(c1, c2, stride=2))
             c1 = c2
 
         # final conv layer to output_dim channels
-        # (B, 48, 3, 4) -> (B, 6, 3, 4)
+        # (B, 96, 1, 2) -> (B, 6, 1, 2)
         cnn_layers.append(nn.Conv2d(c1, output_dim, kernel_size=1))
 
         # global average pooling
-        # (B, 6, 3, 4) -> (B, 6, 1, 1)
+        # (B, 6, 1, 2) -> (B, 6, 1, 1)
         cnn_layers.append(nn.AdaptiveAvgPool2d(1))
 
         # flatten from (B, 6, 1, 1) to (B, 6)
