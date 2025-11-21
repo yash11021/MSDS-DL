@@ -127,7 +127,7 @@ class TransformerPlanner(nn.Module):
         self.n_waypoints = n_waypoints
 
         num_heads = 4
-        num_layers = 2
+        num_layers = 3
 
         # 1. learned query embeddings for each waypoint
         # (n_waypoints,) → (n_waypoints, d_model)
