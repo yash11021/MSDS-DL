@@ -21,9 +21,9 @@ INPUT_STD = [0.2064, 0.1944, 0.2252]
 #  tensor of predicted vehicle positions at the next `n_waypoints` time-steps
 
 # Ego Coordinates
-#   x: left(-) / right(+) relative to vehicle
-#   y: up/down (height)
-#   z: forward(+) / backward(-) relative to vehicle
+#   x = left (-) / right (+) of vehicle
+#   y = up / down
+#   z = forward (+) / backward (-) of vehicle
 
 # we don't care about y -> just bird's eye view (x, z)
 
@@ -130,7 +130,7 @@ class TransformerPlanner(nn.Module):
         num_layers = 3
 
         # 1. learned query embeddings for each waypoint
-        # (n_waypoints,) → (n_waypoints, d_model)
+        # (n_waypoints,) -> (n_waypoints, d_model)
         self.query_embed = nn.Embedding(n_waypoints, d_model) # (how many embeddings to store, size of each embedding vector)
 
         # 2. encode boundary points from (x, z) coords to d_model space
@@ -143,7 +143,7 @@ class TransformerPlanner(nn.Module):
 
         # 3. cross-attention part
         # queries = waypoint embeddings = (B, 3, d_model)
-        # keys/values = encoded boundaries (B, 20, d_model)
+        # keys / values = encoded boundaries (B, 20, d_model)
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=d_model,
             nhead=num_heads,
@@ -306,8 +306,7 @@ class CNNPlanner(torch.nn.Module):
         # normalize input
         x = (image - self.input_mean[None, :, None, None]) / self.input_std[None, :, None, None]
 
-        # pass through CNN network
-        # output shape: (B, 6)
+        # pass through CNN network -> output shape = (B, 6)
         x = self.network(x)
 
         # reshape to (B, n_waypoints, 2)
